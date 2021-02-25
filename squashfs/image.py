@@ -1,4 +1,5 @@
 import zlib
+from collections import deque
 from math import ceil
 
 from .common import Mixin
@@ -28,18 +29,22 @@ class Image(Mixin):
 
         blk = (self.sblk.root_inode_ref >> 16) & 0xffffffff
         offset = self.sblk.root_inode_ref & 0xffff
-        self._traverse(b"", blk, offset)
+        self.traverse(blk, offset)
 
-    def _traverse(self, parent, blk, offset):
-        inode = self._read_inode(blk, offset)
-        dents = self._read_dents(inode)
+    def traverse(self, blk, offset):
+        stack = deque([(self._read_inode(blk, offset), b"")])
 
-        for dent in dents:
-            name = parent + b"/" + dent.name
+        while stack:
+            inode, path = stack.pop()
+            print(path.decode())
 
-            print(name.decode())
-            if dent.type == 1 or dent.type == 8:
-                self._traverse(name, dent.blk, dent.offset)
+            if inode.inode_type == 1 or inode.inode_type == 8:
+                dents = self._read_dents(inode)
+                for dent in reversed(dents):
+                    child_inode = self._read_inode(dent.blk, dent.offset)
+                    child_path = path + b"/" + dent.name
+
+                    stack.append((child_inode, child_path))
 
     def _read_dents(self, inode):
         dents = []
