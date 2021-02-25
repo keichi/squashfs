@@ -19,3 +19,19 @@ class DirectoryEntry(Mixin):
         self.name, offset = self._read_string(mm, offset, self.name_size + 1)
 
         return offset
+
+
+class DirectoryIndex(Mixin):
+    def __init__(self):
+        self.index = 0
+        self.start = 0
+        self.name_size = 0
+        self.name = b""
+
+    def read(self, mm, offset=0):
+        self.index, offset = self._read_uint32(mm, offset)
+        self.start, offset = self._read_uint32(mm, offset)
+        self.name_size, offset = self._read_uint32(mm, offset)
+        self.name, offset = self._read_string(mm, offset, self.name_size + 1)
+
+        return offset

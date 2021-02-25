@@ -2,6 +2,7 @@ from enum import Enum
 from math import ceil
 
 from .common import Mixin, SquashError
+from .dentry import DirectoryIndex
 
 
 class InodeType(Enum):
@@ -98,7 +99,7 @@ class Inode(Mixin):
             else:
                 num_blks = self.file_size // self.sblk.blk_size
 
-            for i in range(num_blks):
+            for _ in range(num_blks):
                 size, offset = self._read_uint32(mm, offset)
                 self.blk_sizes.append(size)
 
@@ -145,13 +146,10 @@ class Inode(Mixin):
 
             self.index = []
 
-            # TODO Create directory index objects
             for _ in range(self.index_count):
-                index, offset = self._read_uint32(mm, offset)
-                start, offset = self._read_uint32(mm, offset)
-                name_size, offset = self._read_uint32(mm, offset)
-                name, offset = self._read_string(mm, offset, name_size + 1)
-                self.index.append(None)
+                dindex = DirectoryIndex()
+                offset = dindex.read(mm, offset)
+                self.index.append(dindex)
 
             return offset
 
@@ -165,15 +163,15 @@ class Inode(Mixin):
             self.blk_offset, offset = self._read_uint32(mm, offset)
             self.xattr_idx, offset = self._read_uint32(mm, offset)
 
-            self.blk_sizes = []
-
             # File does not end with a fragment
             if self.fragment_blk_index == 0xffffffff:
                 num_blks = ceil(self.file_size / self.sblk.blk_size)
             else:
                 num_blks = self.file_size // self.sblk.blk_size
 
-            for i in range(num_blks):
+            self.blk_sizes = []
+
+            for _ in range(num_blks):
                 size, offset = self._read_uint32(mm, offset)
                 self.blk_sizes.append(size)
 
