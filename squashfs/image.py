@@ -76,16 +76,12 @@ class Image(Mixin):
     def _read_dentries(self, inode):
         dentries = []
         start = self.directory_table_index[inode.blk_idx] + inode.blk_offset
-        end = start + inode.file_size
+        end = start + inode.file_size - 3
 
-        while True:
+        while start < end:
             count, start = self._read_uint32(self.directory_table, start)
             inode_blk, start = self._read_uint32(self.directory_table, start)
-            inode_number, start = self._read_uint32(
-                self.directory_table, start)
-
-            if start >= end:
-                break
+            inode_no, start = self._read_uint32(self.directory_table, start)
 
             if count >= 256:
                 raise ReadError("Too many directory entries")
@@ -94,7 +90,7 @@ class Image(Mixin):
                 dent = DirectoryEntry()
                 start = dent.read(self.directory_table, start)
                 dent.blk = inode_blk
-                dent.inode = inode_number + dent.inode_offset
+                dent.inode = inode_no + dent.inode_offset
                 dentries.append(dent)
 
         return dentries
@@ -129,7 +125,7 @@ class Image(Mixin):
 
         offset = 0
         for i in range(self.sblk.id_count):
-            self.ids[i], offset = self._read_uint16(buffer, offset)
+            self.ids[i], offset = self._read_uint32(buffer, offset)
 
     def _decompress_directory_table(self):
         start = self.sblk.directory_table_start
