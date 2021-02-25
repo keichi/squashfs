@@ -52,6 +52,11 @@ class Inode(Mixin):
         self.xattr_idx = 0
 
     @property
+    def is_dir(self):
+        return self.inode_type == InodeType.DIRECTORY.value \
+            or self.inode_type == InodeType.EX_DIRECTORY.value
+
+    @property
     def is_symlink(self):
         return self.inode_type == InodeType.SYMLINK.value \
             or self.inode_type == InodeType.EX_SYMLINK.value
@@ -61,11 +66,6 @@ class Inode(Mixin):
         return self.inode_type == InodeType.FILE.value \
             or self.inode_type == InodeType.EX_FILE.value
 
-    @property
-    def is_dir(self):
-        return self.inode_type == InodeType.DIRECTORY.value \
-            or self.inode_type == InodeType.EX_DIRECTORY.value
-
     def read(self, mm, offset=0):
         self.inode_type, offset = self._read_uint16(mm, offset)
         self.permissions, offset = self._read_uint16(mm, offset)
@@ -73,14 +73,6 @@ class Inode(Mixin):
         self.gid_idx, offset = self._read_uint16(mm, offset)
         self.modified_time, offset = self._read_uint32(mm, offset)
         self.inode_number, offset = self._read_uint32(mm, offset)
-
-        #  print("------------------------------------------------")
-        #  print(f"inode_type: {self.inode_type}")
-        #  print(f"permissions: {self.permissions}")
-        #  print(f"uid_idx: {self.uid_idx}")
-        #  print(f"gid_idx: {self.gid_idx}")
-        #  print(f"modified_time: {self.modified_time}")
-        #  print(f"inode_number: {self.inode_number}")
 
         # Basic directory
         if self.inode_type == InodeType.DIRECTORY.value:

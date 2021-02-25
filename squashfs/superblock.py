@@ -1,4 +1,4 @@
-from .common import Mixin
+from .common import Mixin, ReadError
 
 
 class Superblock(Mixin):
@@ -25,7 +25,8 @@ class Superblock(Mixin):
 
     def read(self, mm, offset=0):
         self.magic, offset = self._read_uint32(mm, offset)
-        assert(self.magic == 0x73717368)
+        if self.magic != 0x73717368:
+            raise ReadError("Not a SquashFS image")
 
         self.inode_count, offset = self._read_uint32(mm, offset)
         self.modification_time, offset = self._read_uint32(mm, offset)
@@ -33,13 +34,15 @@ class Superblock(Mixin):
         self.fragment_entry_count, offset = self._read_uint32(mm, offset)
         self.compression_id, offset = self._read_uint16(mm, offset)
         self.blk_log, offset = self._read_uint16(mm, offset)
-        assert(1 << self.blk_log == self.blk_size)
+        if 1 << self.blk_log != self.blk_size:
+            raise ReadError("block_size and block_log disagree")
 
         self.flags, offset = self._read_uint16(mm, offset)
         self.id_count, offset = self._read_uint16(mm, offset)
         self.version_major, offset = self._read_uint16(mm, offset)
         self.version_minor, offset = self._read_uint16(mm, offset)
-        assert((self.version_major, self.version_minor) == (4, 0))
+        if (self.version_major, self.version_minor) != (4, 0):
+            raise ReadError("Unsupported SquashFS version")
 
         self.root_inode_ref, offset = self._read_uint64(mm, offset)
         self.bytes_used, offset = self._read_uint64(mm, offset)

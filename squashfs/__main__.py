@@ -1,5 +1,6 @@
+import datetime
 import mmap
-import os
+#  import os
 import sys
 
 from .image import Image
@@ -10,9 +11,15 @@ def main():
         mm = mmap.mmap(f.fileno(), 0, prot=mmap.PROT_READ)
         image = Image(mm)
 
-        f = image.open("/etc/group")
+        f = image.open(sys.argv[2])
 
-        os.write(sys.stdout.fileno(), f.read())
+        print("Size:", f.size)
+        print("Permission:", oct(f.permissions))
+        print("UID:", f.uid)
+        print("GID:", f.gid)
+        print("Modtime:", datetime.datetime.fromtimestamp(f.modified_time))
+
+        #  os.write(sys.stdout.fileno(), f.read())
 
 
 if __name__ == "__main__":

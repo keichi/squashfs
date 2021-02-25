@@ -5,6 +5,10 @@ class SquashError(Exception):
     pass
 
 
+class ReadError(SquashError):
+    pass
+
+
 class FileNotFoundError(SquashError):
     pass
 

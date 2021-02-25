@@ -2,7 +2,7 @@ import zlib
 from collections import deque
 from math import ceil
 
-from .common import Mixin, FileNotFoundError, NotAFileError
+from .common import Mixin, FileNotFoundError, NotAFileError, ReadError
 from .superblock import Superblock
 from .file import File
 from .fragment import FragmentBlockEntry
@@ -87,7 +87,8 @@ class Image(Mixin):
             if start >= end:
                 break
 
-            assert(count < 256)
+            if count >= 256:
+                raise ReadError("Too many directory entries")
 
             for _ in range(count + 1):
                 dent = DirectoryEntry()
