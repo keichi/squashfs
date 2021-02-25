@@ -38,7 +38,7 @@ class Image(Mixin):
             inode, path = stack.pop()
             print(path.decode())
 
-            if inode.is_directory:
+            if inode.is_dir:
                 dentries = self._read_dentries(inode)
                 for dent in reversed(dentries):
                     child_inode = self._read_inode(dent.blk, dent.offset)

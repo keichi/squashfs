@@ -48,13 +48,16 @@ class Inode(Mixin):
         self.target_size = 0
         self.target_path = b""
 
+        self.device = 0
+        self.xattr_idx = 0
+
     @property
     def is_file(self):
         return self.inode_type == InodeType.FILE.value \
             or self.inode_type == InodeType.EX_FILE.value
 
     @property
-    def is_directory(self):
+    def is_dir(self):
         return self.inode_type == InodeType.DIRECTORY.value \
             or self.inode_type == InodeType.EX_DIRECTORY.value
 
@@ -116,23 +119,29 @@ class Inode(Mixin):
 
         # Basic block device
         elif self.inode_type == InodeType.BLOCK_DEVICE.value:
-            # TODO
-            raise SquashError
+            self.hard_link_count, offset = self._read_uint32(mm, offset)
+            self.device, offset = self._read_uint32(mm, offset)
+
+            return offset
 
         # Basic char device
         elif self.inode_type == InodeType.CHAR_DEVICE.value:
-            # TODO
-            raise SquashError
+            self.hard_link_count, offset = self._read_uint32(mm, offset)
+            self.device, offset = self._read_uint32(mm, offset)
+
+            return offset
 
         # Basic fifo
         elif self.inode_type == InodeType.FIFO.value:
-            # TODO
-            raise SquashError
+            self.hard_link_count, offset = self._read_uint32(mm, offset)
+
+            return offset
 
         # Basic socket
         elif self.inode_type == InodeType.SOCKET.value:
-            # TODO
-            raise SquashError
+            self.hard_link_count, offset = self._read_uint32(mm, offset)
+
+            return offset
 
         # Extended directory
         elif self.inode_type == InodeType.EX_DIRECTORY.value:
@@ -178,28 +187,43 @@ class Inode(Mixin):
             return offset
         # Extended symlink
         elif self.inode_type == InodeType.EX_SYMLINK.value:
-            # TODO
-            raise SquashError
+            self.hard_link_count, offset = self._read_uint32(mm, offset)
+            self.target_size, offset = self._read_uint32(mm, offset)
+            self.target_path, offset = self._read_string(mm, offset,
+                                                         self.target_size)
+            self.xattr_idx, offset = self._read_uint32(mm, offset)
 
-        # Extended blk device
+            return offset
+
+        # Extended block device
         elif self.inode_type == InodeType.EX_BLOCK_DEVICE.value:
-            # TODO
-            raise SquashError
+            self.hard_link_count, offset = self._read_uint32(mm, offset)
+            self.device, offset = self._read_uint32(mm, offset)
+            self.xatttr_idx, offset = self._read_uint32(mm, offset)
+
+            return offset
 
         # Extended char device
         elif self.inode_type == InodeType.EX_CHAR_DEVICE.value:
-            # TODO
-            raise SquashError
+            self.hard_link_count, offset = self._read_uint32(mm, offset)
+            self.device, offset = self._read_uint32(mm, offset)
+            self.xatttr_idx, offset = self._read_uint32(mm, offset)
+
+            return offset
 
         # Extended fifo
         elif self.inode_type == InodeType.EX_FIFO.value:
-            # TODO
-            raise SquashError
+            self.hard_link_count, offset = self._read_uint32(mm, offset)
+            self.xatttr_idx, offset = self._read_uint32(mm, offset)
+
+            return offset
 
         # Extended socket
         elif self.inode_type == InodeType.EX_BLOCK_DEVICE.value:
-            # TODO
-            raise SquashError
+            self.hard_link_count, offset = self._read_uint32(mm, offset)
+            self.xatttr_idx, offset = self._read_uint32(mm, offset)
+
+            return offset
 
         # Unknown inode type
         else:
