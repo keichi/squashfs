@@ -1,4 +1,5 @@
 import mmap
+import os
 import sys
 
 from .image import Image
@@ -9,13 +10,9 @@ def main():
         mm = mmap.mmap(f.fileno(), 0, prot=mmap.PROT_READ)
         image = Image(mm)
 
-        f = image.open("/etc/passwd")
+        f = image.open("/etc/group")
 
-        print(f.inode.blk_start)
-        print(f.inode.fragment_blk_index)
-        print(f.inode.blk_offset)
-        print(f.inode.file_size)
-        print(f.inode.blk_sizes)
+        os.write(sys.stdout.fileno(), f.read())
 
 
 if __name__ == "__main__":

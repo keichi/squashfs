@@ -5,6 +5,7 @@ from math import ceil
 from .common import Mixin, FileNotFoundError, NotAFileError
 from .superblock import Superblock
 from .file import File
+from .fragment import FragmentBlockEntry
 from .inode import Inode
 from .dentry import DirectoryEntry
 
@@ -21,12 +22,14 @@ class Image(Mixin):
         # key: offset from directory_table_start -> offset, value: offset from
         # the head of directory_table
         self.directory_table_index = {}
+        self.fragments = {}
         self.sblk = Superblock()
 
         self.sblk.read(self.mm, offset)
         self._read_id_table()
         self._decompress_inode_table()
         self._decompress_directory_table()
+        self._read_fragment_table()
 
         blk = (self.sblk.root_inode_ref >> 16) & 0xffffffff
         offset = self.sblk.root_inode_ref & 0xffff
@@ -53,7 +56,7 @@ class Image(Mixin):
         if not inode.is_file:
             raise NotAFileError
 
-        return File(inode)
+        return File(self, inode)
 
     def traverse(self, blk, offset):
         stack = deque([(self._read_inode(blk, offset), b"")])
@@ -138,6 +141,23 @@ class Image(Mixin):
             blk, start = self._decompress_blk(start)
             self.directory_table += blk
             offset += len(blk)
+
+    def _read_fragment_table(self):
+        offset = self.sblk.fragment_table_start
+        buffer = b""
+
+        for _ in range(ceil(self.sblk.fragment_entry_count / 512)):
+            offset2, offset = self._read_uint64(self.mm, offset)
+
+            blk, _ = self._decompress_blk(offset2)
+            buffer += blk
+
+        offset = 0
+        for i in range(self.sblk.fragment_entry_count):
+            entry = FragmentBlockEntry()
+            offset = entry.read(buffer, offset)
+
+            self.fragments[i] = entry
 
     def _decompress_blk(self, offset):
         header, offset = self._read_uint16(self.mm, offset)

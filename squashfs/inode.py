@@ -39,7 +39,7 @@ class Inode(Mixin):
         self.blk_offset = 0
         self.parent_inode_number = 0
 
-        self.blk_start = 0
+        self.blks_start = 0
         self.fragment_blk_index = 0
         self.blk_offset = 0
         self.file_size = 0
@@ -50,6 +50,11 @@ class Inode(Mixin):
 
         self.device = 0
         self.xattr_idx = 0
+
+    @property
+    def is_symlink(self):
+        return self.inode_type == InodeType.SYMLINK.value \
+            or self.inode_type == InodeType.EX_SYMLINK.value
 
     @property
     def is_file(self):
@@ -89,7 +94,7 @@ class Inode(Mixin):
 
         # Basic file
         elif self.inode_type == InodeType.FILE.value:
-            self.blk_start, offset = self._read_uint32(mm, offset)
+            self.blks_start, offset = self._read_uint32(mm, offset)
             self.fragment_blk_index, offset = self._read_uint32(mm, offset)
             self.blk_offset, offset = self._read_uint32(mm, offset)
             self.file_size, offset = self._read_uint32(mm, offset)
@@ -164,7 +169,7 @@ class Inode(Mixin):
 
         # Extended file
         elif self.inode_type == InodeType.EX_FILE.value:
-            self.blk_start, offset = self._read_uint64(mm, offset)
+            self.blks_start, offset = self._read_uint64(mm, offset)
             self.file_size, offset = self._read_uint64(mm, offset)
             self.sparse, offset = self._read_uint64(mm, offset)
             self.hard_link_count, offset = self._read_uint32(mm, offset)
