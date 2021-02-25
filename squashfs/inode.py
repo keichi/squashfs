@@ -1,6 +1,24 @@
+from enum import Enum
 from math import ceil
 
 from .common import Mixin, SquashError
+
+
+class InodeType(Enum):
+    DIRECTORY = 1
+    FILE = 2
+    SYMLINK = 3
+    BLOCK_DEVICE = 4
+    CHAR_DEVICE = 5
+    FIFO = 6
+    SOCKET = 7
+    EX_DIRECTORY = 8
+    EX_FILE = 9
+    EX_SYMLINK = 10
+    EX_BLOCK_DEVICE = 11
+    EX_CHAR_DEVICE = 12
+    EX_FIFO = 13
+    EX_SOCKET = 14
 
 
 class Inode(Mixin):
@@ -29,6 +47,16 @@ class Inode(Mixin):
         self.target_size = 0
         self.target_path = b""
 
+    @property
+    def is_file(self):
+        return self.inode_type == InodeType.FILE.value \
+            or self.inode_type == InodeType.EX_FILE.value
+
+    @property
+    def is_directory(self):
+        return self.inode_type == InodeType.DIRECTORY.value \
+            or self.inode_type == InodeType.EX_DIRECTORY.value
+
     def read(self, mm, offset=0):
         self.inode_type, offset = self._read_uint16(mm, offset)
         self.permissions, offset = self._read_uint16(mm, offset)
@@ -46,7 +74,7 @@ class Inode(Mixin):
         #  print(f"inode_number: {self.inode_number}")
 
         # Basic directory
-        if self.inode_type == 1:
+        if self.inode_type == InodeType.DIRECTORY.value:
             self.blk_idx, offset = self._read_uint32(mm, offset)
             self.hard_link_count, offset = self._read_uint32(mm, offset)
             self.file_size, offset = self._read_uint16(mm, offset)
@@ -56,7 +84,7 @@ class Inode(Mixin):
             return offset
 
         # Basic file
-        elif self.inode_type == 2:
+        elif self.inode_type == InodeType.FILE.value:
             self.blk_start, offset = self._read_uint32(mm, offset)
             self.fragment_blk_index, offset = self._read_uint32(mm, offset)
             self.blk_offset, offset = self._read_uint32(mm, offset)
@@ -77,7 +105,7 @@ class Inode(Mixin):
             return offset
 
         # Basic symlink
-        elif self.inode_type == 3:
+        elif self.inode_type == InodeType.SYMLINK.value:
             self.hard_link_count, offset = self._read_uint32(mm, offset)
             self.target_size, offset = self._read_uint32(mm, offset)
             self.target_path, offset = self._read_string(mm, offset,
@@ -85,28 +113,28 @@ class Inode(Mixin):
 
             return offset
 
-        # Basic blk device
-        elif self.inode_type == 4:
+        # Basic block device
+        elif self.inode_type == InodeType.BLOCK_DEVICE.value:
             # TODO
             raise SquashError
 
         # Basic char device
-        elif self.inode_type == 5:
+        elif self.inode_type == InodeType.CHAR_DEVICE.value:
             # TODO
             raise SquashError
 
         # Basic fifo
-        elif self.inode_type == 6:
+        elif self.inode_type == InodeType.FIFO.value:
             # TODO
             raise SquashError
 
         # Basic socket
-        elif self.inode_type == 7:
+        elif self.inode_type == InodeType.SOCKET.value:
             # TODO
             raise SquashError
 
         # Extended directory
-        elif self.inode_type == 8:
+        elif self.inode_type == InodeType.EX_DIRECTORY.value:
             self.hard_link_count, offset = self._read_uint32(mm, offset)
             self.file_size, offset = self._read_uint32(mm, offset)
             self.blk_idx, offset = self._read_uint32(mm, offset)
@@ -128,7 +156,7 @@ class Inode(Mixin):
             return offset
 
         # Extended file
-        elif self.inode_type == 9:
+        elif self.inode_type == InodeType.EX_FILE.value:
             self.blk_start, offset = self._read_uint64(mm, offset)
             self.file_size, offset = self._read_uint64(mm, offset)
             self.sparse, offset = self._read_uint64(mm, offset)
@@ -151,27 +179,27 @@ class Inode(Mixin):
 
             return offset
         # Extended symlink
-        elif self.inode_type == 10:
+        elif self.inode_type == InodeType.EX_SYMLINK.value:
             # TODO
             raise SquashError
 
         # Extended blk device
-        elif self.inode_type == 11:
+        elif self.inode_type == InodeType.EX_BLOCK_DEVICE.value:
             # TODO
             raise SquashError
 
         # Extended char device
-        elif self.inode_type == 12:
+        elif self.inode_type == InodeType.EX_CHAR_DEVICE.value:
             # TODO
             raise SquashError
 
         # Extended fifo
-        elif self.inode_type == 13:
+        elif self.inode_type == InodeType.EX_FIFO.value:
             # TODO
             raise SquashError
 
         # Extended socket
-        elif self.inode_type == 14:
+        elif self.inode_type == InodeType.EX_BLOCK_DEVICE.value:
             # TODO
             raise SquashError
 

@@ -38,16 +38,16 @@ class Image(Mixin):
             inode, path = stack.pop()
             print(path.decode())
 
-            if inode.inode_type == 1 or inode.inode_type == 8:
-                dents = self._read_dents(inode)
-                for dent in reversed(dents):
+            if inode.is_directory:
+                dentries = self._read_dentries(inode)
+                for dent in reversed(dentries):
                     child_inode = self._read_inode(dent.blk, dent.offset)
                     child_path = path + b"/" + dent.name
 
                     stack.append((child_inode, child_path))
 
-    def _read_dents(self, inode):
-        dents = []
+    def _read_dentries(self, inode):
+        dentries = []
         start = self.directory_table_index[inode.blk_idx] + inode.blk_offset
         end = start + inode.file_size
 
@@ -67,9 +67,9 @@ class Image(Mixin):
                 start = dent.read(self.directory_table, start)
                 dent.blk = inode_blk
                 dent.inode = inode_number + dent.inode_offset
-                dents.append(dent)
+                dentries.append(dent)
 
-        return dents
+        return dentries
 
     def _read_inode(self, blk, offset):
         inode = Inode(self.sblk)
@@ -83,10 +83,10 @@ class Image(Mixin):
         offset = 0
 
         while start < end:
-            tmp = start
+            offset2 = start - self.sblk.inode_table_start
+            self.inode_table_index[offset2] = offset
             blk, start = self._decompress_blk(start)
             self.inode_table += blk
-            self.inode_table_index[tmp - self.sblk.inode_table_start] = offset
             offset += len(blk)
 
     def _read_id_table(self):
@@ -109,11 +109,10 @@ class Image(Mixin):
         offset = 0
 
         while start < end:
-            tmp = start
+            offset2 = start - self.sblk.directory_table_start
+            self.directory_table_index[offset2] = offset
             blk, start = self._decompress_blk(start)
             self.directory_table += blk
-            self.directory_table_index[tmp -
-                                       self.sblk.directory_table_start] = offset
             offset += len(blk)
 
     def _decompress_blk(self, offset):
