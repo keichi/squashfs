@@ -2,7 +2,7 @@ import zlib
 from math import ceil
 
 from .common import Mixin
-from .super_block import Superblock
+from .superblock import Superblock
 from .inode import Inode
 from .dentry import DirectoryEntry
 
