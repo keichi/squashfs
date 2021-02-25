@@ -5,6 +5,14 @@ class SquashError(Exception):
     pass
 
 
+class FileNotFoundError(SquashError):
+    pass
+
+
+class NotAFileError(SquashError):
+    pass
+
+
 class Mixin:
     def _read_int16(self, mm, offset):
         val, = struct.unpack_from("<h", mm, offset)

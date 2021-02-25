@@ -2,8 +2,9 @@ import zlib
 from collections import deque
 from math import ceil
 
-from .common import Mixin
+from .common import Mixin, FileNotFoundError, NotAFileError
 from .superblock import Superblock
+from .file import File
 from .inode import Inode
 from .dentry import DirectoryEntry
 
@@ -29,7 +30,30 @@ class Image(Mixin):
 
         blk = (self.sblk.root_inode_ref >> 16) & 0xffffffff
         offset = self.sblk.root_inode_ref & 0xffff
-        self.traverse(blk, offset)
+        self.root_inode = self._read_inode(blk, offset)
+
+    def open(self, path):
+        inode = self.root_inode
+
+        for p in path.split("/"):
+            if not p:
+                continue
+
+            found = False
+            dentries = self._read_dentries(inode)
+            for dent in dentries:
+                if p == dent.name.decode():
+                    inode = self._read_inode(dent.blk, dent.offset)
+                    found = True
+                    break
+
+            if not found:
+                raise FileNotFoundError
+
+        if not inode.is_file:
+            raise NotAFileError
+
+        return File(inode)
 
     def traverse(self, blk, offset):
         stack = deque([(self._read_inode(blk, offset), b"")])
