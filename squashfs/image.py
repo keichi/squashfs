@@ -1,6 +1,6 @@
 import zlib
-from collections import deque
 from math import ceil
+import mmap
 
 from .common import Mixin, FileNotFoundError, NotAFileError, ReadError
 from .superblock import Superblock
@@ -11,8 +11,12 @@ from .dentry import DirectoryEntry
 
 
 class Image(Mixin):
-    def __init__(self, mm, offset=0):
-        self.mm = mm
+    def __init__(self, file):
+        if isinstance(file, str):
+            self.fp = open(file, "rb")
+        else:
+            self.fp = file
+        self.mm = mmap.mmap(self.fp.fileno(), 0, prot=mmap.PROT_READ)
         self.ids = {}
         self.inode_table = b""
         # key: offset from inode_table_start, value: offset from the head of
@@ -25,7 +29,7 @@ class Image(Mixin):
         self.fragments = {}
         self.sblk = Superblock()
 
-        self.sblk.read(self.mm, offset)
+        self.sblk.read(self.mm, 0)
         self._read_id_table()
         self._decompress_inode_table()
         self._decompress_directory_table()
@@ -35,7 +39,7 @@ class Image(Mixin):
         offset = self.sblk.root_inode_ref & 0xffff
         self.root_inode = self._read_inode(blk, offset)
 
-    def open(self, path):
+    def get_inode(self, path):
         inode = self.root_inode
 
         for p in path.split("/"):
@@ -53,25 +57,19 @@ class Image(Mixin):
             if not found:
                 raise FileNotFoundError
 
+        return inode
+
+    def open(self, path):
+        inode = self.get_inode(path)
+
         if not inode.is_file:
             raise NotAFileError
 
-        return File(self, inode)
+        return File(self, self.get_inode(path))
 
-    def traverse(self, blk, offset):
-        stack = deque([(self._read_inode(blk, offset), b"")])
-
-        while stack:
-            inode, path = stack.pop()
-            print(path.decode())
-
-            if inode.is_dir:
-                dentries = self._read_dentries(inode)
-                for dent in reversed(dentries):
-                    child_inode = self._read_inode(dent.blk, dent.offset)
-                    child_path = path + b"/" + dent.name
-
-                    stack.append((child_inode, child_path))
+    def listdir(self, path):
+        return [dent.name.decode() for dent in
+                self._read_dentries(self.get_inode(path))]
 
     def _read_dentries(self, inode):
         dentries = []
@@ -166,3 +164,16 @@ class Image(Mixin):
             data = zlib.decompress(data)
 
         return data, offset
+
+    def close(self):
+        if self.fp is None:
+            return
+
+        self.fp.close()
+        self.fp = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.close()
