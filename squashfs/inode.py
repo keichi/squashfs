@@ -66,6 +66,26 @@ class Inode(Mixin):
         return self.inode_type == InodeType.FILE.value \
             or self.inode_type == InodeType.EX_FILE.value
 
+    @property
+    def is_block_dev(self):
+        return self.inode_type == InodeType.BLOCK_DEVICE.value \
+            or self.inode_type == InodeType.EX_BLOCK_DEVICE.value
+
+    @property
+    def is_char_dev(self):
+        return self.inode_type == InodeType.CHAR_DEVICE.value \
+            or self.inode_type == InodeType.EX_CHAR_DEVICE.value
+
+    @property
+    def is_fifo_dev(self):
+        return self.inode_type == InodeType.FIFO.value \
+            or self.inode_type == InodeType.EX_FIFO.value
+
+    @property
+    def is_socket_dev(self):
+        return self.inode_type == InodeType.SOCKET.value \
+            or self.inode_type == InodeType.EX_SOCKET.value
+
     def read(self, mm, offset=0):
         self.inode_type, offset = self._read_uint16(mm, offset)
         self.permissions, offset = self._read_uint16(mm, offset)
@@ -182,6 +202,7 @@ class Inode(Mixin):
                 self.blk_sizes.append(size)
 
             return offset
+
         # Extended symlink
         elif self.inode_type == InodeType.EX_SYMLINK.value:
             self.hard_link_count, offset = self._read_uint32(mm, offset)
@@ -224,4 +245,4 @@ class Inode(Mixin):
 
         # Unknown inode type
         else:
-            raise SquashError
+            raise SquashError(f"Unknown inode type {self.inode_type}")
