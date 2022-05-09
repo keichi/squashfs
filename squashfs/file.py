@@ -28,6 +28,12 @@ class File(Mixin):
     def modified_time(self):
         return self.inode.modified_time
 
+    @property
+    def xattrs(self):
+        if self.inode.xattr_idx == 0xffffffff:
+            return {}
+        return self.image.xattrs[self.inode.xattr_idx]
+
     def read(self):
         buffer = b""
 

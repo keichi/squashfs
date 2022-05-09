@@ -17,6 +17,7 @@ class Image(Mixin):
         else:
             self.fp = file
         self.mm = mmap.mmap(self.fp.fileno(), 0, prot=mmap.PROT_READ)
+        # key: UID/GID table idx, value: UID/GID
         self.ids = {}
         self.inode_table = b""
         # key: offset from inode_table_start, value: offset from the head of
@@ -27,14 +28,17 @@ class Image(Mixin):
         # the head of directory_table
         self.directory_table_index = {}
         self.fragments = {}
+        self.xattrs = {}
         self.sblk = Superblock()
 
         self.sblk.read(self.mm, 0)
         self._read_id_table()
         self._decompress_inode_table()
         self._decompress_directory_table()
-        self._read_fragment_table()
-
+        if not self.sblk.flags & 0x0010:
+            self._read_fragment_table()
+        if not self.sblk.flags & 0x0200:
+            self._read_xattr_table()
         blk = (self.sblk.root_inode_ref >> 16) & 0xffffffff
         offset = self.sblk.root_inode_ref & 0xffff
         self.root_inode = self._read_inode(blk, offset)
@@ -154,6 +158,81 @@ class Image(Mixin):
 
             self.fragments[i] = entry
 
+    def _read_xattr_table(self):
+        if self.sblk.xattr_id_table_start == 0xffffffffffffffff:
+            return
+
+        offset = self.sblk.xattr_id_table_start
+        # holds the decompressed xattr lookup table
+        buffer = b""
+
+        # Parse the xattr ID table and decompress the xattr lookup table
+        xattr_table_start, offset = self._read_uint64(self.mm, offset)
+
+        xattr_ids, offset = self._read_uint32(self.mm, offset)
+        _, offset = self._read_uint32(self.mm, offset)
+
+        start = xattr_table_start
+        end, _ = self._read_uint64(self.mm, offset)
+
+        for _ in range(ceil(xattr_ids / 512)):
+            offset2, offset = self._read_uint64(self.mm, offset)
+
+            blk, _ = self._decompress_blk(offset2)
+            buffer += blk
+
+        offset = 0
+        xattr_table = b""
+        # starting pos of block -> offset in decompressed buffer
+        xattr_table_index = {}
+        while start < end:
+            xattr_table_index[start - xattr_table_start] = offset
+            blk, start = self._decompress_blk(start)
+            xattr_table += blk
+            offset += len(blk)
+
+        # Parse the loopkup table and KV entries
+        # TODO Add a class for loopkup table entries?
+        offset = 0
+        for i in range(xattr_ids):
+            xattr_ref, offset = self._read_uint64(buffer, offset)
+            count, offset = self._read_uint32(buffer, offset)
+            _, offset = self._read_uint32(buffer, offset)
+
+            blk = (xattr_ref >> 16) & 0xffffffff
+            offset2 = xattr_table_index[blk] + (xattr_ref & 0xffff)
+
+            self.xattrs[i] = {}
+
+            for _ in range(count):
+                typ, offset2 = self._read_uint16(xattr_table, offset2)
+                name_size, offset2 = self._read_uint16(xattr_table, offset2)
+                name, offset2 = self._read_string(xattr_table, offset2, name_size)
+                value_size, offset2 = self._read_uint32(xattr_table, offset2)
+
+                # value is stored out of line
+                if typ & 0x0100:
+                    value, offset2 = self._read_uint64(xattr_table, offset2)
+                    value_blk = (value >> 16) & 0xffffffff
+                    value_offset = xattr_table_index[value_blk] + (value & 0xffff)
+
+                    value_size, value_offset = self._read_uint32(xattr_table, value_offset)
+                    value = xattr_table[value_offset:value_offset+value_size]
+                else:
+                    value, offset2 = self._read_string(xattr_table, offset2, value_size)
+
+                if typ & 0xff == 0:
+                    name = b"user." + name
+                elif typ & 0xff == 1:
+                    name = b"trusted." + name
+                elif typ & 0xff == 2:
+                    name = b"security." + name
+                else:
+                    raise ReadError("Unknown xattr prefix type")
+
+                self.xattrs[i][name] = value
+
+
     def _decompress_blk(self, offset):
         header, offset = self._read_uint16(self.mm, offset)
         data_size = header & 0x7fff
@@ -175,5 +254,5 @@ class Image(Mixin):
     def __enter__(self):
         return self
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, exc_type, exc_value, traceback):
         self.close()

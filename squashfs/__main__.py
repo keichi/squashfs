@@ -13,6 +13,7 @@ def main():
         print("UID:", f.uid)
         print("GID:", f.gid)
         print("Modtime:", datetime.datetime.fromtimestamp(f.modified_time))
+        print("Xattrs:", f.xattrs)
 
 
 if __name__ == "__main__":

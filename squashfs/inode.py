@@ -49,7 +49,7 @@ class Inode(Mixin):
         self.target_path = b""
 
         self.device = 0
-        self.xattr_idx = 0
+        self.xattr_idx = 0xffffffff
 
     @property
     def is_dir(self):
