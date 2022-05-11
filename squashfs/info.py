@@ -53,12 +53,12 @@ class Info(Mixin):
         return self.inode.is_char_dev
 
     @property
-    def is_fifo_dev(self):
-        return self.inode.is_fifo_dev
+    def is_fifo(self):
+        return self.inode.is_fifo
 
     @property
-    def is_socket_dev(self):
-        return self.inode.is_socket_dev
+    def is_socket(self):
+        return self.inode.is_socket
 
 
     def __repr__(self):

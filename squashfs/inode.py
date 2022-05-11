@@ -77,12 +77,12 @@ class Inode(Mixin):
             or self.inode_type == InodeType.EX_CHAR_DEVICE.value
 
     @property
-    def is_fifo_dev(self):
+    def is_fifo(self):
         return self.inode_type == InodeType.FIFO.value \
             or self.inode_type == InodeType.EX_FIFO.value
 
     @property
-    def is_socket_dev(self):
+    def is_socket(self):
         return self.inode_type == InodeType.SOCKET.value \
             or self.inode_type == InodeType.EX_SOCKET.value
 
