@@ -73,7 +73,14 @@ class Image(Mixin):
         offset = inode.blks_start
 
         for size in inode.blk_sizes:
-            buffer += zlib.decompress(self.mm[offset:offset+size])
+            if size & (1 << 24):
+                size = size ^ (1 << 24)
+                blk = self.mm[offset:offset+size]
+            else:
+                blk = self.mm[offset:offset+size]
+                blk = zlib.decompress(blk)
+
+            buffer += blk
             offset += size
 
         # File contains a fragment
