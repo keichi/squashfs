@@ -1,7 +1,7 @@
 from squashfs.image import Image
 
 
-def test_basic():
+def test_inode_types():
     with Image("tests/test_basic.sfs") as image:
         assert image.listdir() == [
             "001_directory",
@@ -13,14 +13,44 @@ def test_basic():
             "007_socket",
         ]
 
+        info = image.stat("001_directory")
+        assert info.permissions == 0o775
+        assert info.is_dir
+        assert info.uid == 1000
+        assert info.gid == 1000
 
-def test_xattrs():
-    with Image("tests/test_xattr.sfs") as image:
-        assert image.stat("foo").xattrs == {
-            b"security.capability": b"\x01\x00\x00\x02\x00\x00\x00\x02\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00",
-            b"user.shatag.sha256": b"634b027b1b69e1242d40d53e312b3b4ac7710f55be81f289b549446ef6778bee",
-        }
+        info = image.stat("002_file")
+        assert info.permissions == 0o664
+        assert info.is_file
+        assert info.uid == 1000
+        assert info.gid == 1000
 
-        assert image.stat("bar").xattrs == {
-            b"user.shatag.sha256": b"7d6fd7774f0d87624da6dcf16d0d3d104c3191e771fbe2f39c86aed4b2bf1a0f"
-        }
+        info = image.stat("003_symlink")
+        assert info.permissions == 0o777
+        assert info.is_symlink
+        assert info.uid == 1000
+        assert info.gid == 1000
+
+        info = image.stat("004_block_dev")
+        assert info.permissions == 0o644
+        assert info.is_block_dev
+        assert info.uid == 0
+        assert info.gid == 0
+
+        info = image.stat("005_char_dev")
+        assert info.permissions == 0o644
+        assert info.is_char_dev
+        assert info.uid == 0
+        assert info.gid == 0
+
+        info = image.stat("006_fifo")
+        assert info.permissions == 0o664
+        assert info.is_fifo
+        assert info.uid == 1000
+        assert info.gid == 1000
+
+        info = image.stat("007_socket")
+        assert info.permissions == 0o775
+        assert info.is_socket
+        assert info.uid == 1000
+        assert info.gid == 1000
