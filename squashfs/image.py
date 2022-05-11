@@ -4,7 +4,7 @@ import mmap
 
 from .common import Mixin, FileNotFoundError, NotAFileError, ReadError
 from .superblock import Superblock
-from .file import File
+from .info import Info
 from .fragment import FragmentBlockEntry
 from .inode import Inode
 from .dentry import DirectoryEntry
@@ -71,9 +71,16 @@ class Image(Mixin):
 
         return File(self, self.get_inode(path))
 
-    def listdir(self, path):
+    def listdir(self, path=""):
         return [dent.name.decode() for dent in
                 self._read_dentries(self.get_inode(path))]
+
+    def stat(self, path):
+        inode = self.get_inode(path)
+        info = Info(self, inode)
+
+        return info
+
 
     def _read_dentries(self, inode):
         dentries = []
