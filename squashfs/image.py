@@ -69,7 +69,27 @@ class Image(Mixin):
         if not inode.is_file:
             raise NotAFileError
 
-        return File(self, self.get_inode(path))
+        buffer = b""
+        offset = inode.blks_start
+
+        for size in inode.blk_sizes:
+            buffer += zlib.decompress(self.mm[offset:offset+size])
+            offset += size
+
+        # File contains a fragment
+        frag_idx = inode.fragment_blk_index
+        if frag_idx != 0xffffffff:
+            start = self.fragments[frag_idx].start
+            size = self.fragments[frag_idx].size
+            fragment = self.mm[start:start+size]
+            if self.fragments[frag_idx].is_compressed:
+                fragment = zlib.decompress(fragment)
+
+            frag_offset = inode.blk_offset
+            frag_size = inode.file_size % self.sblk.blk_size
+            buffer += fragment[frag_offset:frag_offset+frag_size]
+
+        return buffer
 
     def listdir(self, path=""):
         return [dent.name.decode() for dent in

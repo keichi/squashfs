@@ -54,3 +54,6 @@ class Superblock(Mixin):
         self.export_table_start, offset = self._read_uint64(mm, offset)
 
         return offset
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(inode_count={self.inode_count}, blk_size={self.blk_size}, flags=0x{self.flags:x})"
