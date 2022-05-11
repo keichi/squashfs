@@ -32,5 +32,34 @@ class Info(Mixin):
             return {}
         return self.image.xattrs[self.inode.xattr_idx]
 
+    @property
+    def is_dir(self):
+        return self.inode.is_dir
+
+    @property
+    def is_symlink(self):
+        return self.inode.is_symlink
+
+    @property
+    def is_file(self):
+        return self.inode.is_file
+
+    @property
+    def is_block_dev(self):
+        return self.inode.is_block_dev
+
+    @property
+    def is_char_dev(self):
+        return self.inode.is_char_dev
+
+    @property
+    def is_fifo_dev(self):
+        return self.inode.is_fifo_dev
+
+    @property
+    def is_socket_dev(self):
+        return self.inode.is_socket_dev
+
+
     def __repr__(self):
         return f"{self.__class__.__name__}(size={self.size}, permissions=0o{self.permissions:o}, uid={self.uid}, gid={self.gid}, modified_time={self.modified_time}, xattrs={self.xattrs})"
