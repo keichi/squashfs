@@ -3,12 +3,12 @@ from .common import Mixin, ReadError
 
 
 class FragmentBlockEntry(Mixin):
-    def __init__(self):
+    def __init__(self) -> None:
         self.start = 0
         self.size = 0
         self.is_compressed = False
 
-    def read(self, mm, offset=0):
+    def read(self, mm: memoryview, offset: int) -> int:
         self.start, offset = self._read_uint64(mm, offset)
         self.size, offset = self._read_uint32(mm, offset)
 
@@ -25,5 +25,5 @@ class FragmentBlockEntry(Mixin):
 
         return offset
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{self.__class__.__name__}(start={self.start}, size={self.size})"

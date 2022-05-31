@@ -1,6 +1,8 @@
+from io import IOBase
 import zlib
 from math import ceil
 import mmap
+from typing import cast, Dict, List, Optional, Tuple
 
 from .common import Mixin, FileNotFoundError, NotAFileError, ReadError
 from .superblock import Superblock
@@ -11,24 +13,20 @@ from .dentry import DirectoryEntry
 
 
 class Image(Mixin):
-    def __init__(self, file):
-        if isinstance(file, str):
-            self.fp = open(file, "rb")
-        else:
-            self.fp = file
-        self.mm = mmap.mmap(self.fp.fileno(), 0, prot=mmap.PROT_READ)
-        # key: UID/GID table idx, value: UID/GID
-        self.ids = {}
-        self.inode_table = b""
-        # key: offset from inode_table_start, value: offset from the head of
-        # inode_table
-        self.inode_table_index = {}
-        self.directory_table = b""
-        # key: offset from directory_table_start -> offset, value: offset from
-        # the head of directory_table
-        self.directory_table_index = {}
-        self.fragments = {}
-        self.xattrs = {}
+    def __init__(self, file: str) -> None:
+        self.fp: Optional[IOBase] = open(file, "rb")
+        mm = mmap.mmap(cast(IOBase, self.fp).fileno(), 0, prot=mmap.PROT_READ)
+        self.mm = memoryview(mm)
+        # UID/GID table idx -> UID/GID
+        self.ids: Dict[int, int] = {}
+        self.inode_table: memoryview = memoryview(b"")
+        # offset from inode_table_start -> offset from the head of inode_table
+        self.inode_table_index: Dict[int, int] = {}
+        self.directory_table: memoryview = memoryview(b"")
+        # offset from directory_table_start ->  offset from the head of directory_table
+        self.directory_table_index: Dict[int, int] = {}
+        self.fragments: Dict[int, FragmentBlockEntry] = {}
+        self.xattrs: Dict[int, Dict[bytes, bytes]] = {}
         self.sblk = Superblock()
 
         self.sblk.read(self.mm, 0)
@@ -43,7 +41,7 @@ class Image(Mixin):
         offset = self.sblk.root_inode_ref & 0xffff
         self.root_inode = self._read_inode(blk, offset)
 
-    def get_inode(self, path):
+    def get_inode(self, path: str) -> Inode:
         inode = self.root_inode
 
         for p in path.split("/"):
@@ -63,7 +61,7 @@ class Image(Mixin):
 
         return inode
 
-    def open(self, path):
+    def open(self, path: str) -> bytes:
         inode = self.get_inode(path)
 
         if not inode.is_file:
@@ -75,10 +73,9 @@ class Image(Mixin):
         for size in inode.blk_sizes:
             if size & (1 << 24):
                 size = size ^ (1 << 24)
-                blk = self.mm[offset:offset+size]
+                blk =self.mm[offset:offset+size].tobytes()
             else:
-                blk = self.mm[offset:offset+size]
-                blk = zlib.decompress(blk)
+                blk = zlib.decompress(self.mm[offset:offset+size])
 
             buffer += blk
             offset += size
@@ -88,9 +85,10 @@ class Image(Mixin):
         if frag_idx != 0xffffffff:
             start = self.fragments[frag_idx].start
             size = self.fragments[frag_idx].size
-            fragment = self.mm[start:start+size]
             if self.fragments[frag_idx].is_compressed:
-                fragment = zlib.decompress(fragment)
+                fragment = zlib.decompress(self.mm[start:start+size])
+            else:
+                fragment = self.mm[start:start+size].tobytes()
 
             frag_offset = inode.blk_offset
             frag_size = inode.file_size % self.sblk.blk_size
@@ -98,18 +96,17 @@ class Image(Mixin):
 
         return buffer
 
-    def listdir(self, path=""):
+    def listdir(self, path:str="") -> List[str]:
         return [dent.name.decode() for dent in
                 self._read_dentries(self.get_inode(path))]
 
-    def stat(self, path):
+    def stat(self, path: str) -> Info:
         inode = self.get_inode(path)
         info = Info(self, inode)
 
         return info
 
-
-    def _read_dentries(self, inode):
+    def _read_dentries(self, inode: Inode) -> List[DirectoryEntry]:
         dentries = []
         start = self.directory_table_index[inode.blk_idx] + inode.blk_offset
         end = start + inode.file_size - 3
@@ -131,25 +128,28 @@ class Image(Mixin):
 
         return dentries
 
-    def _read_inode(self, blk, offset):
+    def _read_inode(self, blk: int, offset: int) -> Inode:
         inode = Inode(self.sblk)
         inode.read(self.inode_table, self.inode_table_index[blk] + offset)
 
         return inode
 
-    def _decompress_inode_table(self):
+    def _decompress_inode_table(self) -> None:
         start = self.sblk.inode_table_start
         end = self.sblk.directory_table_start
+        inode_table = b""
         offset = 0
 
         while start < end:
             offset2 = start - self.sblk.inode_table_start
             self.inode_table_index[offset2] = offset
             blk, start = self._decompress_blk(start)
-            self.inode_table += blk
+            inode_table += blk
             offset += len(blk)
 
-    def _read_id_table(self):
+        self.inode_table = memoryview(inode_table)
+
+    def _read_id_table(self) -> None:
         offset = self.sblk.id_table_start
         buffer = b""
 
@@ -161,21 +161,24 @@ class Image(Mixin):
 
         offset = 0
         for i in range(self.sblk.id_count):
-            self.ids[i], offset = self._read_uint32(buffer, offset)
+            self.ids[i], offset = self._read_uint32(memoryview(buffer), offset)
 
-    def _decompress_directory_table(self):
+    def _decompress_directory_table(self) -> None:
         start = self.sblk.directory_table_start
         end = self.sblk.fragment_table_start
+        directory_table = b""
         offset = 0
 
         while start < end:
             offset2 = start - self.sblk.directory_table_start
             self.directory_table_index[offset2] = offset
             blk, start = self._decompress_blk(start)
-            self.directory_table += blk
+            directory_table += blk
             offset += len(blk)
 
-    def _read_fragment_table(self):
+        self.directory_table = memoryview(directory_table)
+
+    def _read_fragment_table(self) -> None:
         offset = self.sblk.fragment_table_start
         buffer = b""
 
@@ -188,11 +191,11 @@ class Image(Mixin):
         offset = 0
         for i in range(self.sblk.fragment_entry_count):
             entry = FragmentBlockEntry()
-            offset = entry.read(buffer, offset)
+            offset = entry.read(memoryview(buffer), offset)
 
             self.fragments[i] = entry
 
-    def _read_xattr_table(self):
+    def _read_xattr_table(self) -> None:
         if self.sblk.xattr_id_table_start == 0xffffffffffffffff:
             return
 
@@ -211,27 +214,30 @@ class Image(Mixin):
 
         for _ in range(ceil(xattr_ids / 512)):
             offset2, offset = self._read_uint64(self.mm, offset)
+            block, _ = self._decompress_blk(offset2)
+            buffer += block
 
-            blk, _ = self._decompress_blk(offset2)
-            buffer += blk
+        xattr_lookup_table = memoryview(buffer)
 
         offset = 0
-        xattr_table = b""
+        buffer2 = b""
         # starting pos of block -> offset in decompressed buffer
         xattr_table_index = {}
         while start < end:
             xattr_table_index[start - xattr_table_start] = offset
-            blk, start = self._decompress_blk(start)
-            xattr_table += blk
-            offset += len(blk)
+            block, start = self._decompress_blk(start)
+            buffer2 += block
+            offset += len(block)
+
+        xattr_table = memoryview(buffer2)
 
         # Parse the loopkup table and KV entries
         # TODO Add a class for loopkup table entries?
         offset = 0
         for i in range(xattr_ids):
-            xattr_ref, offset = self._read_uint64(buffer, offset)
-            count, offset = self._read_uint32(buffer, offset)
-            _, offset = self._read_uint32(buffer, offset)
+            xattr_ref, offset = self._read_uint64(xattr_lookup_table, offset)
+            count, offset = self._read_uint32(xattr_lookup_table, offset)
+            _, offset = self._read_uint32(xattr_lookup_table, offset)
 
             blk = (xattr_ref >> 16) & 0xffffffff
             offset2 = xattr_table_index[blk] + (xattr_ref & 0xffff)
@@ -246,12 +252,12 @@ class Image(Mixin):
 
                 # value is stored out of line
                 if typ & 0x0100:
-                    value, offset2 = self._read_uint64(xattr_table, offset2)
-                    value_blk = (value >> 16) & 0xffffffff
-                    value_offset = xattr_table_index[value_blk] + (value & 0xffff)
+                    val, offset2 = self._read_uint64(xattr_table, offset2)
+                    value_blk = (val >> 16) & 0xffffffff
+                    value_offset = xattr_table_index[value_blk] + (val & 0xffff)
 
                     value_size, value_offset = self._read_uint32(xattr_table, value_offset)
-                    value = xattr_table[value_offset:value_offset+value_size]
+                    value = xattr_table[value_offset:value_offset+value_size].tobytes()
                 else:
                     value, offset2 = self._read_string(xattr_table, offset2, value_size)
 
@@ -266,8 +272,7 @@ class Image(Mixin):
 
                 self.xattrs[i][name] = value
 
-
-    def _decompress_blk(self, offset):
+    def _decompress_blk(self, offset: int) -> Tuple[bytes, int]:
         header, offset = self._read_uint16(self.mm, offset)
         data_size = header & 0x7fff
         is_compressed = not header & 0x8000
@@ -278,15 +283,15 @@ class Image(Mixin):
 
         return data, offset
 
-    def close(self):
+    def close(self) -> None:
         if self.fp is None:
             return
 
         self.fp.close()
         self.fp = None
 
-    def __enter__(self):
+    def __enter__(self): # type: ignore
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type, exc_value, traceback): # type: ignore
         self.close()

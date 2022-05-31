@@ -2,7 +2,7 @@ from .common import Mixin, ReadError
 
 
 class Superblock(Mixin):
-    def __init__(self):
+    def __init__(self) -> None:
         self.magic = 0
         self.inode_count = 0
         self.modification_time = 0
@@ -23,7 +23,7 @@ class Superblock(Mixin):
         self.fragment_table_start = 0
         self.export_table_start = 0
 
-    def read(self, mm, offset=0):
+    def read(self, mm: memoryview, offset: int) -> int:
         self.magic, offset = self._read_uint32(mm, offset)
         if self.magic != 0x73717368:
             raise ReadError("Not a SquashFS image")
@@ -55,5 +55,5 @@ class Superblock(Mixin):
 
         return offset
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{self.__class__.__name__}(inode_count={self.inode_count}, blk_size={self.blk_size}, flags=0x{self.flags:x})"

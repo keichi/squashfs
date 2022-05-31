@@ -1,8 +1,10 @@
 from enum import Enum
 from math import ceil
+from typing import List
 
 from .common import Mixin, SquashError
 from .dentry import DirectoryIndex
+from .superblock import Superblock
 
 
 class InodeType(Enum):
@@ -23,7 +25,7 @@ class InodeType(Enum):
 
 
 class Inode(Mixin):
-    def __init__(self, sblk):
+    def __init__(self, sblk: Superblock) -> None:
         self.sblk = sblk
 
         self.inode_type = 0
@@ -43,7 +45,7 @@ class Inode(Mixin):
         self.fragment_blk_index = 0
         self.blk_offset = 0
         self.file_size = 0
-        self.blk_sizes = []
+        self.blk_sizes: List[int] = []
 
         self.target_size = 0
         self.target_path = b""
@@ -52,41 +54,41 @@ class Inode(Mixin):
         self.xattr_idx = 0xffffffff
 
     @property
-    def is_dir(self):
+    def is_dir(self) -> bool:
         return self.inode_type == InodeType.DIRECTORY.value \
             or self.inode_type == InodeType.EX_DIRECTORY.value
 
     @property
-    def is_symlink(self):
+    def is_symlink(self) -> bool:
         return self.inode_type == InodeType.SYMLINK.value \
             or self.inode_type == InodeType.EX_SYMLINK.value
 
     @property
-    def is_file(self):
+    def is_file(self) -> bool:
         return self.inode_type == InodeType.FILE.value \
             or self.inode_type == InodeType.EX_FILE.value
 
     @property
-    def is_block_dev(self):
+    def is_block_dev(self) -> bool:
         return self.inode_type == InodeType.BLOCK_DEVICE.value \
             or self.inode_type == InodeType.EX_BLOCK_DEVICE.value
 
     @property
-    def is_char_dev(self):
+    def is_char_dev(self) -> bool:
         return self.inode_type == InodeType.CHAR_DEVICE.value \
             or self.inode_type == InodeType.EX_CHAR_DEVICE.value
 
     @property
-    def is_fifo(self):
+    def is_fifo(self) -> bool:
         return self.inode_type == InodeType.FIFO.value \
             or self.inode_type == InodeType.EX_FIFO.value
 
     @property
-    def is_socket(self):
+    def is_socket(self) -> bool:
         return self.inode_type == InodeType.SOCKET.value \
             or self.inode_type == InodeType.EX_SOCKET.value
 
-    def read(self, mm, offset=0):
+    def read(self, mm: memoryview, offset: int) -> int:
         self.inode_type, offset = self._read_uint16(mm, offset)
         self.permissions, offset = self._read_uint16(mm, offset)
         self.uid_idx, offset = self._read_uint16(mm, offset)

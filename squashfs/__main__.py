@@ -4,7 +4,7 @@ import sys
 from .image import Image
 
 
-def main():
+def main() -> None:
     with Image(sys.argv[1]) as image:
         f = image.open(sys.argv[2])
 
