@@ -37,8 +37,8 @@ class Image(Mixin):
             self._read_fragment_table()
         if not self.sblk.flags & 0x0200:
             self._read_xattr_table()
-        blk = (self.sblk.root_inode_ref >> 16) & 0xffffffff
-        offset = self.sblk.root_inode_ref & 0xffff
+        blk = (self.sblk.root_inode_ref >> 16) & 0xFFFFFFFF
+        offset = self.sblk.root_inode_ref & 0xFFFF
         self.root_inode = self._read_inode(blk, offset)
 
     def get_inode(self, path: str) -> Inode:
@@ -73,32 +73,33 @@ class Image(Mixin):
         for size in inode.blk_sizes:
             if size & (1 << 24):
                 size = size ^ (1 << 24)
-                blk =self.mm[offset:offset+size].tobytes()
+                blk = self.mm[offset : offset + size].tobytes()
             else:
-                blk = zlib.decompress(self.mm[offset:offset+size])
+                blk = zlib.decompress(self.mm[offset : offset + size])
 
             buffer += blk
             offset += size
 
         # File contains a fragment
         frag_idx = inode.fragment_blk_index
-        if frag_idx != 0xffffffff:
+        if frag_idx != 0xFFFFFFFF:
             start = self.fragments[frag_idx].start
             size = self.fragments[frag_idx].size
             if self.fragments[frag_idx].is_compressed:
-                fragment = zlib.decompress(self.mm[start:start+size])
+                fragment = zlib.decompress(self.mm[start : start + size])
             else:
-                fragment = self.mm[start:start+size].tobytes()
+                fragment = self.mm[start : start + size].tobytes()
 
             frag_offset = inode.blk_offset
             frag_size = inode.file_size % self.sblk.blk_size
-            buffer += fragment[frag_offset:frag_offset+frag_size]
+            buffer += fragment[frag_offset : frag_offset + frag_size]
 
         return buffer
 
-    def listdir(self, path:str="") -> List[str]:
-        return [dent.name.decode() for dent in
-                self._read_dentries(self.get_inode(path))]
+    def listdir(self, path: str = "") -> List[str]:
+        return [
+            dent.name.decode() for dent in self._read_dentries(self.get_inode(path))
+        ]
 
     def stat(self, path: str) -> Info:
         inode = self.get_inode(path)
@@ -196,7 +197,7 @@ class Image(Mixin):
             self.fragments[i] = entry
 
     def _read_xattr_table(self) -> None:
-        if self.sblk.xattr_id_table_start == 0xffffffffffffffff:
+        if self.sblk.xattr_id_table_start == 0xFFFFFFFFFFFFFFFF:
             return
 
         offset = self.sblk.xattr_id_table_start
@@ -239,8 +240,8 @@ class Image(Mixin):
             count, offset = self._read_uint32(xattr_lookup_table, offset)
             _, offset = self._read_uint32(xattr_lookup_table, offset)
 
-            blk = (xattr_ref >> 16) & 0xffffffff
-            offset2 = xattr_table_index[blk] + (xattr_ref & 0xffff)
+            blk = (xattr_ref >> 16) & 0xFFFFFFFF
+            offset2 = xattr_table_index[blk] + (xattr_ref & 0xFFFF)
 
             self.xattrs[i] = {}
 
@@ -253,19 +254,23 @@ class Image(Mixin):
                 # value is stored out of line
                 if typ & 0x0100:
                     val, offset2 = self._read_uint64(xattr_table, offset2)
-                    value_blk = (val >> 16) & 0xffffffff
-                    value_offset = xattr_table_index[value_blk] + (val & 0xffff)
+                    value_blk = (val >> 16) & 0xFFFFFFFF
+                    value_offset = xattr_table_index[value_blk] + (val & 0xFFFF)
 
-                    value_size, value_offset = self._read_uint32(xattr_table, value_offset)
-                    value = xattr_table[value_offset:value_offset+value_size].tobytes()
+                    value_size, value_offset = self._read_uint32(
+                        xattr_table, value_offset
+                    )
+                    value = xattr_table[
+                        value_offset : value_offset + value_size
+                    ].tobytes()
                 else:
                     value, offset2 = self._read_string(xattr_table, offset2, value_size)
 
-                if typ & 0xff == 0:
+                if typ & 0xFF == 0:
                     name = b"user." + name
-                elif typ & 0xff == 1:
+                elif typ & 0xFF == 1:
                     name = b"trusted." + name
-                elif typ & 0xff == 2:
+                elif typ & 0xFF == 2:
                     name = b"security." + name
                 else:
                     raise ReadError("Unknown xattr prefix type")
@@ -274,7 +279,7 @@ class Image(Mixin):
 
     def _decompress_blk(self, offset: int) -> Tuple[bytes, int]:
         header, offset = self._read_uint16(self.mm, offset)
-        data_size = header & 0x7fff
+        data_size = header & 0x7FFF
         is_compressed = not header & 0x8000
 
         data, offset = self._read_string(self.mm, offset, data_size)
@@ -290,8 +295,8 @@ class Image(Mixin):
         self.fp.close()
         self.fp = None
 
-    def __enter__(self): # type: ignore
+    def __enter__(self):  # type: ignore
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback): # type: ignore
+    def __exit__(self, exc_type, exc_value, traceback):  # type: ignore
         self.close()

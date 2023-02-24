@@ -1,6 +1,7 @@
 from typing import Dict, TYPE_CHECKING
 
 from .common import Mixin
+
 if TYPE_CHECKING:
     from .image import Image
     from .inode import Inode
@@ -33,7 +34,7 @@ class Info(Mixin):
 
     @property
     def xattrs(self) -> Dict[bytes, bytes]:
-        if self.inode.xattr_idx == 0xffffffff:
+        if self.inode.xattr_idx == 0xFFFFFFFF:
             return {}
         return self.image.xattrs[self.inode.xattr_idx]
 
@@ -64,7 +65,6 @@ class Info(Mixin):
     @property
     def is_socket(self) -> bool:
         return self.inode.is_socket
-
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(size={self.size}, permissions=0o{self.permissions:o}, uid={self.uid}, gid={self.gid}, modified_time={self.modified_time}, xattrs={self.xattrs})"

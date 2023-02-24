@@ -28,6 +28,9 @@ jobs:
     - name: Install dependencies
       run: |
         poetry install
+    - name: Check code format
+      run: |
+        poetry run black --check --diff --color squashfs
     - name: Run type checks
       run: |
         poetry run mypy --strict squashfs

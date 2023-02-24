@@ -51,42 +51,56 @@ class Inode(Mixin):
         self.target_path = b""
 
         self.device = 0
-        self.xattr_idx = 0xffffffff
+        self.xattr_idx = 0xFFFFFFFF
 
     @property
     def is_dir(self) -> bool:
-        return self.inode_type == InodeType.DIRECTORY.value \
+        return (
+            self.inode_type == InodeType.DIRECTORY.value
             or self.inode_type == InodeType.EX_DIRECTORY.value
+        )
 
     @property
     def is_symlink(self) -> bool:
-        return self.inode_type == InodeType.SYMLINK.value \
+        return (
+            self.inode_type == InodeType.SYMLINK.value
             or self.inode_type == InodeType.EX_SYMLINK.value
+        )
 
     @property
     def is_file(self) -> bool:
-        return self.inode_type == InodeType.FILE.value \
+        return (
+            self.inode_type == InodeType.FILE.value
             or self.inode_type == InodeType.EX_FILE.value
+        )
 
     @property
     def is_block_dev(self) -> bool:
-        return self.inode_type == InodeType.BLOCK_DEVICE.value \
+        return (
+            self.inode_type == InodeType.BLOCK_DEVICE.value
             or self.inode_type == InodeType.EX_BLOCK_DEVICE.value
+        )
 
     @property
     def is_char_dev(self) -> bool:
-        return self.inode_type == InodeType.CHAR_DEVICE.value \
+        return (
+            self.inode_type == InodeType.CHAR_DEVICE.value
             or self.inode_type == InodeType.EX_CHAR_DEVICE.value
+        )
 
     @property
     def is_fifo(self) -> bool:
-        return self.inode_type == InodeType.FIFO.value \
+        return (
+            self.inode_type == InodeType.FIFO.value
             or self.inode_type == InodeType.EX_FIFO.value
+        )
 
     @property
     def is_socket(self) -> bool:
-        return self.inode_type == InodeType.SOCKET.value \
+        return (
+            self.inode_type == InodeType.SOCKET.value
             or self.inode_type == InodeType.EX_SOCKET.value
+        )
 
     def read(self, mm: memoryview, offset: int) -> int:
         self.inode_type, offset = self._read_uint16(mm, offset)
@@ -116,7 +130,7 @@ class Inode(Mixin):
             self.blk_sizes = []
 
             # File does not end with a fragment
-            if self.fragment_blk_index == 0xffffffff:
+            if self.fragment_blk_index == 0xFFFFFFFF:
                 num_blks = ceil(self.file_size / self.sblk.blk_size)
             else:
                 num_blks = self.file_size // self.sblk.blk_size
@@ -131,8 +145,7 @@ class Inode(Mixin):
         elif self.inode_type == InodeType.SYMLINK.value:
             self.hard_link_count, offset = self._read_uint32(mm, offset)
             self.target_size, offset = self._read_uint32(mm, offset)
-            self.target_path, offset = self._read_string(mm, offset,
-                                                         self.target_size)
+            self.target_path, offset = self._read_string(mm, offset, self.target_size)
 
             return offset
 
@@ -192,7 +205,7 @@ class Inode(Mixin):
             self.xattr_idx, offset = self._read_uint32(mm, offset)
 
             # File does not end with a fragment
-            if self.fragment_blk_index == 0xffffffff:
+            if self.fragment_blk_index == 0xFFFFFFFF:
                 num_blks = ceil(self.file_size / self.sblk.blk_size)
             else:
                 num_blks = self.file_size // self.sblk.blk_size
@@ -209,8 +222,7 @@ class Inode(Mixin):
         elif self.inode_type == InodeType.EX_SYMLINK.value:
             self.hard_link_count, offset = self._read_uint32(mm, offset)
             self.target_size, offset = self._read_uint32(mm, offset)
-            self.target_path, offset = self._read_string(mm, offset,
-                                                         self.target_size)
+            self.target_path, offset = self._read_string(mm, offset, self.target_size)
             self.xattr_idx, offset = self._read_uint32(mm, offset)
 
             return offset

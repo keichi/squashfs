@@ -1,7 +1,6 @@
 from .common import Mixin, ReadError
 
 
-
 class FragmentBlockEntry(Mixin):
     def __init__(self) -> None:
         self.start = 0
